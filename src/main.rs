@@ -1,12 +1,14 @@
+mod engine;
+
 use rand::random;
 use image::RgbImage;
 
 const NONE: u8 = 255;
 static mut DEBUG: bool = false;
 
-fn debug() -> bool{ unsafe{DEBUG} }
+fn debug() -> bool { unsafe{DEBUG} }
 
-fn rand_card() -> u8{ random::<u8>() % 54 }
+fn rand_card() -> u8 { random::<u8>() % 54 }
 
 // needs refactoring
 fn non_repeating(tape: &[u8]) -> u8{
