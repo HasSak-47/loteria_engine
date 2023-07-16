@@ -3,6 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 const NONE: u8 = 255;
+const DECK_SIZE: usize = 54;
 
 #[wasm_bindgen]
 extern {
@@ -16,21 +17,30 @@ extern {
     #[wasm_bindgen(js_namespace = console)]
     pub fn error(s: &str);
 }
-fn rand_card() -> u8{
-    (random() * 54.0) as u8
+
+fn _random() -> usize {
+    (random() * (1 << 23) as f32) as usize
 }
 
-pub fn non_repeating(tape16: &[u8], tape56: &[u8]) -> u8{
-    log(&format!("16: {tape16:?}\n 56: {tape56:?}"));
-    loop{
-        let x = rand_card(); if tape56.binary_search(&x).is_ok(){
-            continue;
-        }
-        if tape16.binary_search(&x).is_ok(){
-            continue;
-        }
+fn rand_card() -> u8{
+    (_random() % DECK_SIZE) as u8
+}
 
-        return x;
+// dumb way to do it
+pub fn generate_set(last_set: Option<[u8; DECK_SIZE]>, current_set: &mut [u8; DECK_SIZE]) {
+    let mut orderder_tape = Vec::new();
+    for i in 0..DECK_SIZE{
+        orderder_tape.push(i as u8);
+    }
+
+    for i in 0..DECK_SIZE{
+        let pop = _random() % orderder_tape.len();
+        let x = orderder_tape[pop];
+
+        if last_set.is_some() && last_set.unwrap().contains(&x){
+
+        }
+        current_set[i] = orderder_tape.remove(i);
     }
 }
 
@@ -72,25 +82,29 @@ pub struct BoardGenerator{
 impl BoardGenerator{
     #[wasm_bindgen(constructor)]
     pub fn new(dup: usize, uni: usize) -> BoardGenerator {
-        let mut tape = Vec::new();
+        let mut sets = Vec::new();
         let lenght = dup * 15 + uni * 16;
-        tape.resize(lenght, NONE);
-
-        if lenght < 54 {
-            warn("Unfinished set!");
+        if lenght < DECK_SIZE {
+            warn(&format!("Unfinished set! {lenght} out of 56 ({dup}, {uni})"));
         }
 
-        for i in 0..lenght{
-            let min16 = if i < 16 { 0 } else { i - 15 };
-            let min56 = if i < 56 { 0 } else { (i / 56) * 56};
-            tape[i] = non_repeating(&tape[min16..i], &tape[min56..i]);
+        let sets_lenght = 1 + lenght / DECK_SIZE;
+        sets.resize(sets_lenght * DECK_SIZE, [NONE; DECK_SIZE]);
+
+        for i in 0..sets_lenght{
+            generate_set(
+                if i == 0 {None} else {Some(sets[i - 1].clone())},
+                 &mut sets[i]
+            );
         }
+
+        let tape = Vec::new();
 
         BoardGenerator { dup, uni, tape, boards: Vec::new()}
     }
 
     pub fn enough(&self) -> bool{
-        self.dup * 15 + self.uni * 16 < 54
+        self.dup * 15 + self.uni * 16 < DECK_SIZE 
     }
 
     pub fn make_next(&self){
