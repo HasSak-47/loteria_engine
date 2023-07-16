@@ -1,5 +1,20 @@
 mod engine;
 
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+extern {
+    pub fn alert(s: &str);
+}
+
+#[wasm_bindgen]
+pub fn greet(name: &str){
+    alert(&format!("hello: {name}"));
+}
+
+
+/*
+
 use rand::random;
 use image::RgbImage;
 
@@ -145,3 +160,4 @@ fn main() {
        image.save(format!("out/out-{id:03}.png")).unwrap();
     }
 }
+*/
