@@ -7,6 +7,12 @@ async function run() {
   let end = Date.now();
 
   console.log("delta: " + (end - start) + "ms");
+
+  let x = generator.next();
+  while(x != undefined){
+    console.log(x);
+    x = generator.next();
+  }
 }
 
 run();
