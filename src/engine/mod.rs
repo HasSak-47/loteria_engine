@@ -14,10 +14,7 @@ extern {
     pub fn log(s: &str);
     #[wasm_bindgen(js_namespace = console)]
     pub fn warn(s: &str);
-    #[wasm_bindgen(js_namespace = console)]
-    pub fn error(s: &str);
-}
-
+    #[wasm_bindgen(js_namespace = console)] pub fn error(s: &str); }
 fn _random() -> usize {
     (random() * (1 << 23) as f32) as usize
 }
@@ -154,10 +151,16 @@ impl std::fmt::Display for GeneratedBoard{
 #[wasm_bindgen]
 pub struct Board([u8; 16]);
 
+#[wasm_bindgen]
 impl Board {
     pub fn new() -> Board {
         Board([0; 16])
     }
+
+    // fan-fucking-tastic
+    // getters and setters
+    pub fn get(&self, index: usize) -> u8{ self.0[index] }
+    pub fn set(&mut self, index: usize, val: u8) { self.0[index] = val; }
 }
 
 #[wasm_bindgen]
