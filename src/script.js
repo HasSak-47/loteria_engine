@@ -10,7 +10,11 @@ async function run() {
 
   let x = generator.next();
   while(x != undefined){
-    console.log(x);
+    let vals = new Uint8Array(16);
+    for(let i = 0; i < 16; ++i){
+      vals[i] = x.get(i);
+    }
+    console.log(vals);
     x = generator.next();
   }
 }
