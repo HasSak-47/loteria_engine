@@ -1,22 +1,54 @@
-import init, {BoardGenerator} from '../pkg/loteria.js';
+import init, {Generator} from '../pkg/loteria.js';
 
-async function run() {
-  const wasm = await init().catch(console.error);
-  let start = Date.now();
-  let generator = new BoardGenerator(4, 4);
-  let end = Date.now();
+async function get_boards() {
+    const wasm = await init().catch(console.error);
+    let start = Date.now();
+    let generator = new Generator(4, 4);
+    let delta = Date.now() - start;
 
-  console.log("delta: " + (end - start) + "ms");
-
-  let x = generator.next();
-  while(x != undefined){
-    let vals = new Uint8Array(16);
-    for(let i = 0; i < 16; ++i){
-      vals[i] = x.get(i);
+    let boards = [];
+    let next = generator.next();
+    while(next != null){
+        boards.push(next)
+        next = generator.next();
     }
-    console.log(vals);
-    x = generator.next();
-  }
+    
+
+    return boards;
 }
 
-run();
+// setup
+const images_path = 'images/';
+const paths = [];
+
+for(let i = 0; i < 54; ++i){
+    let zero_str = i < 10 ? '0' : '';
+    let image_path = `images/out.image-0${zero_str}${i}.png`;
+    paths.push(image_path);
+}
+// end setup
+
+let image_div = document.getElementById('images');
+// paths.forEach(k => image_div.innerHTML += `<img src='${k}'>`);
+function push_board(board){
+    let inner_add = "";
+    inner_add += '<div class="board">';
+    let row_format = '<div class="board-row">';
+    for(let i = 0; i < 4; ++i){
+        inner_add += '<div class="board-row">';
+        let image_class = board.get_row(i).forEach(k => inner_add += `<img src='${paths[k]}'>`);
+        inner_add += '</div>';
+    }
+    inner_add += '</div>';
+    console.log(inner_add);
+    image_div.innerHTML += inner_add;
+}
+
+async function main(){
+    let boards = await get_boards();
+
+    boards.forEach(board => push_board(board));
+
+}
+
+main();

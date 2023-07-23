@@ -104,8 +104,8 @@ impl CellType{
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Cell{
-    image_index: usize,
-    cell_type: CellType,
+    pub image_index: usize,
+    pub cell_type: CellType,
 }
 
 impl Cell{
@@ -115,7 +115,7 @@ impl Cell{
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct GeneratedBoard([Cell;16]);
+pub struct GeneratedBoard(pub [Cell;16]);
 
 impl std::fmt::Display for GeneratedBoard{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -139,8 +139,6 @@ impl BoardGenerator{
     pub fn new(dup: usize, uni: usize) -> BoardGenerator {
         let mut sets = Vec::new();
         let lenght = dup * 15 + uni * 16;
-        if lenght < DECK_SIZE {
-        }
 
         let sets_lenght = 1 + lenght / DECK_SIZE;
         sets.resize(sets_lenght, [NONE; DECK_SIZE]);
