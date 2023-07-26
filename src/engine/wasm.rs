@@ -1,4 +1,4 @@
-// #![cfg(target_arch="wasm32")]
+#![cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -13,9 +13,9 @@ extern {
     #[wasm_bindgen(js_namespace = console)] pub fn error(s: &str);
 }
 
-// wrappers fun
 use super::motor::{BoardGenerator, GeneratedBoard};
 
+// wrappers fun
 #[wasm_bindgen]
 pub struct Generator(BoardGenerator);
 
@@ -39,16 +39,6 @@ impl Array16u8{
     }
 }
 
-fn make_arr(board: GeneratedBoard) -> Array16u8{
-    let mut arr = Array16u8::default();    
-
-    for i in 0..16{
-        arr.0[i] = board.0[i].image_index as u8;
-    }
-
-    arr
-}
-
 impl std::fmt::Display for Array16u8{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for i in 0..16{
@@ -61,6 +51,16 @@ impl std::fmt::Display for Array16u8{
     }
 }
 
+// there must be a better way
+fn make_arr(board: GeneratedBoard) -> Array16u8{
+    let mut arr = Array16u8::default();    
+
+    for i in 0..16{
+        arr.0[i] = board.0[i].image_index as u8;
+    }
+
+    arr
+}
 #[wasm_bindgen]
 impl Generator{
     #[wasm_bindgen(constructor)]
@@ -69,7 +69,6 @@ impl Generator{
     }
 
     pub fn next(&mut self) -> Option<Array16u8>{
-        // there must be a better way to do this
         match self.0.boards.pop(){
             None => None,
             Some(l) => {Some(make_arr(l)) }

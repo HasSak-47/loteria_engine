@@ -1,34 +1,41 @@
+
 use super::random::random;
 
 const NONE: u8 = 255;
 const DECK_SIZE: usize = 54;
 
+fn pop_deck(index: usize, src_set: &mut Vec<u8>, dst_set: &mut [u8; DECK_SIZE]){
+    let pop = random() % src_set.len();
+    dst_set[index] = src_set.remove(pop);
+}
+
 fn fill_tail_set(head_set: &mut [u8; DECK_SIZE]) {
-    let mut orded_tape : Vec<u8> = (0..DECK_SIZE as u8).collect();
+    let mut ordered_tape : Vec<u8> = (0..DECK_SIZE as u8).collect();
 
     for i in 0..DECK_SIZE{
-        let pop = random() % orded_tape.len();
-        head_set[i] = orded_tape.remove(pop);
+        pop_deck(i, &mut ordered_tape, head_set);
     }
 }
 
-fn fill_head_set(head_set: &mut [u8; DECK_SIZE], last_set : [u8; DECK_SIZE]) {
-    let mut orded_tape : Vec<u8> = (0..DECK_SIZE as u8).collect();
-    let last_16 = &last_set[DECK_SIZE - 16..DECK_SIZE];
-    for i in 0..16{
-        // no do while :)
-        let mut pop = random() % orded_tape.len();
-        while last_16.contains(&(pop as u8)){
-            pop = random() % orded_tape.len();
+fn fill_head_set(head_set: &mut [u8; DECK_SIZE], last_set : &[u8; DECK_SIZE]) {
+    let mut ordered_tape : Vec<u8> = (0..DECK_SIZE as u8).collect();
+    let mut last_16 = last_set.clone()[DECK_SIZE - 16..DECK_SIZE].to_vec();
+
+    for val in &last_16{
+        let index = ordered_tape.iter().position(|&x| x == *val);
+        match index{
+            Some(index) => {ordered_tape.remove(index);},
+            None => {},
         }
-        head_set[i] = orded_tape.remove(pop);
     }
 
-    for i in 16..DECK_SIZE{
-        let pop = random() % orded_tape.len();
-        head_set[i] = orded_tape.remove(pop);
+    for i in 0..(DECK_SIZE - 16){
+        pop_deck(i, &mut ordered_tape, head_set);
     }
 
+    for i in DECK_SIZE - 16..DECK_SIZE{
+        pop_deck(i, &mut last_16, head_set);
+    }
 }
 
 fn eat_16(tape : &mut Vec<u8>) -> GeneratedBoard{
@@ -44,6 +51,7 @@ fn eat_16(tape : &mut Vec<u8>) -> GeneratedBoard{
 
 fn eat_15(tape : &mut Vec<u8>) -> GeneratedBoard{
     let mut board = GeneratedBoard::default();
+    board.1 = 1;
 
     for i in 0..15{
         let index = tape.pop().unwrap();
@@ -72,15 +80,7 @@ fn eat_15(tape : &mut Vec<u8>) -> GeneratedBoard{
     board
 }
 
-// dumb way to do it
-fn generate_set(last_set: Option<[u8; DECK_SIZE]>, current_set: &mut [u8; DECK_SIZE]) {
-    match last_set{
-        None => fill_tail_set(current_set),
-        Some(last_set) => fill_head_set(current_set, last_set),
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum CellType{
     #[default]
     Undetermined,
@@ -115,7 +115,7 @@ impl Cell{
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct GeneratedBoard(pub [Cell;16]);
+pub struct GeneratedBoard(pub [Cell;16], pub u8);
 
 impl std::fmt::Display for GeneratedBoard{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -128,10 +128,23 @@ impl std::fmt::Display for GeneratedBoard{
     }
 }
 
+
 pub struct BoardGenerator{
     pub dup: usize,
     pub uni: usize,
     pub boards: Vec<GeneratedBoard>,
+}
+
+#[cfg(test)]
+pub fn test_tape(tape: &Vec<u8>){
+    let tape = tape.clone();
+    for i in 0..tape.len() - 16{
+        let next16 = &tape[i + 1..i + 17];
+        if next16.contains(&tape[i]){
+            panic!("duplicate in tape!");
+        }
+
+    }
 }
 
 #[allow(dead_code)]
@@ -144,10 +157,13 @@ impl BoardGenerator{
         sets.resize(sets_lenght, [NONE; DECK_SIZE]);
 
         for i in 0..sets_lenght{
-            generate_set(
-                if i == 0 {None} else {Some(sets[i - 1].clone())},
-                &mut sets[i]
-            );
+            if i == 0{
+                fill_tail_set(&mut sets[i]);
+            }
+            else{
+                let last = sets[i - 1].clone();
+                fill_head_set(&mut sets[i], &last);
+            }
         }
 
         let mut tape = Vec::new();
@@ -159,6 +175,9 @@ impl BoardGenerator{
 
             tape[i] = sets[set_index][set_subindex];
         }
+
+        #[cfg(test)]
+        test_tape(&tape);
 
         let mut boards = Vec::new();
         for _ in 0..uni{
@@ -175,4 +194,76 @@ impl BoardGenerator{
     pub fn enough(&self) -> bool{
         self.dup * 15 + self.uni * 16 < DECK_SIZE 
     }
+}
+
+#[cfg(test)]
+mod test{
+use super::*;
+impl GeneratedBoard {
+    pub fn verify(&self) -> Result<(), String>{
+        for indx in 0..16 * 16{
+            let i = indx % 16;
+            let j = indx / 16;
+            if i == j{
+                continue;
+            }
+
+            if self.0[i].image_index == self.0[j].image_index &&
+                self.0[i].cell_type == CellType::Unique &&
+                self.0[j].cell_type == CellType::Unique
+            { return Err(format!("{} {} {}", false, i, j)); }
+
+        }
+
+        Ok(())
+    }
+
+    // todo : do this
+    fn vefify_vector(_v : Vec<(Cell, usize)>) -> Result<(), String>{
+        Ok(())
+    }
+
+    // this is shit lmao
+    pub fn verify2(&self) -> Result<(), String>{
+        let mut map : Vec<(usize, Vec<(Cell, usize)>)> = Vec::new();
+        for ite in self.0.into_iter().enumerate(){
+            let cell_index = ite.0;
+            let cell = ite.1;
+            match map.iter().position(|x| x.0 == cell.image_index){
+                Some(index) => {
+                    map[index].1.push((cell, cell_index));
+                },
+                None => {
+                    let mut v = Vec::new();
+                    v.push((cell, cell_index));
+                    map.push((cell.image_index, v));
+                },
+            }
+        }
+
+        let mut duplicates = 0;
+        for data in map{
+            if data.1.len() > 2{
+                return Err("something went wrong!".to_string());
+            }
+            else
+            if data.1.len() == 2{
+                duplicates += 1;
+                Self::vefify_vector(data.1).unwrap();
+            }
+            else
+            if data.1.len() == 0{
+                return Err("someting went wrong!".to_string());
+            }
+
+
+        }
+
+        if self.1 != duplicates {
+            return Err(format!("duplicates don't match expected:{} got:{}!", self.1, duplicates));
+        }
+
+        Ok(())
+    }
+}
 }
