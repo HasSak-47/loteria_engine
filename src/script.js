@@ -17,19 +17,6 @@ async function get_boards() {
     return boards;
 }
 
-// setup
-const images_path = 'images/';
-const paths = [];
-
-for(let i = 0; i < 54; ++i){
-    let zero_str = i < 10 ? '0' : '';
-    let image_path = `images/out.image-0${zero_str}${i}.png`;
-    paths.push(image_path);
-}
-// end setup
-
-let image_div = document.getElementById('images');
-// paths.forEach(k => image_div.innerHTML += `<img src='${k}'>`);
 function push_board(board){
     let inner_add = "";
     inner_add += '<div class="board">';
@@ -48,7 +35,6 @@ async function main(){
     let boards = await get_boards();
 
     boards.forEach(board => push_board(board));
-
 }
 
 main();

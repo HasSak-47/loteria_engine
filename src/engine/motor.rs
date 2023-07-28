@@ -1,4 +1,3 @@
-
 use super::random::random;
 
 const NONE: u8 = 255;
