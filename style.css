@@ -1,9 +1,0 @@
-.board {
-    margin: 10px;
-    display: inline-block;
-}
-
-.board-row{
-    display: flex;
-    height: 100%;
-}
