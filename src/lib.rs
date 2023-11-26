@@ -6,7 +6,7 @@ mod tests{
 
     #[test]
     fn test_board_generator() {
-        let motor = BoardGenerator::new(16, 16);
+        let motor = BoardGenerator::new();
         for board in motor.boards.into_iter().enumerate(){
             let res1 = board.1.verify();
             let res2 = board.1.verify2();
