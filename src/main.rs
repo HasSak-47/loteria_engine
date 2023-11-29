@@ -1,4 +1,5 @@
 mod engine;
+mod log;
 
 use engine::Board;
 
