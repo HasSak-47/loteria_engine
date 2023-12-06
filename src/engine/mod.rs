@@ -1,5 +1,7 @@
 pub mod random;
 pub mod board;
+use std::fmt::Display;
+
 use board::BasicBoard;
 
 use crate::engine::random::{rand_range, rand_range_pair};
@@ -28,7 +30,7 @@ impl Card {
         *self = Self::None;
     }
 
-    pub fn unpack(&mut self) -> u8{
+    pub fn unpack(&self) -> u8{
         match self{
             Self::Value(v) => *v,
             _ => 0,
@@ -258,5 +260,20 @@ impl BoardActor for SetCount{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.total = self.0;
         Ok(()) 
+    }
+}
+
+impl Display for BoardBuilder{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for ij in 0..16 {
+            let i = ij % 4; 
+            let j = ij / 4; 
+            write!(f, "{:?} ", self.board[i][j])?;
+            if i == 3{
+                writeln!(f)?;
+            }
+        }
+
+        Ok(())
     }
 }
