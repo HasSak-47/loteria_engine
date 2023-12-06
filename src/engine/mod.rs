@@ -4,7 +4,7 @@ use board::BasicBoard;
 
 use crate::engine::random::{rand_range, rand_range_pair};
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Card{
     Value(u8),
     #[default]
@@ -27,11 +27,18 @@ impl Card {
     pub fn unset(&mut self){
         *self = Self::None;
     }
+
+    pub fn unpack(&mut self) -> u8{
+        match self{
+            Self::Value(v) => *v,
+            _ => 0,
+        }
+    }
 }
 
 pub type Board = BasicBoard<Card>;
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataCard{
     #[default]
     NotSpecial,
@@ -45,7 +52,7 @@ pub trait BoardActor{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()>;
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct BoardBuilder{
     board: DataBoard,
     blacklist: Vec<u8>,
@@ -63,7 +70,6 @@ fn generate_deck(last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
     let mut last_16: Vec<u8> = last_16.into();
 
     // remove the blacklist from the cards
-    println!("removing blacklist!");
     for lastc in blacklist.iter(){
         let i = cards.iter().position(|x| x == lastc);
         if i.is_none(){ continue; }
@@ -71,20 +77,17 @@ fn generate_deck(last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
     }
 
     // remove the last_16 from the cards 
-    println!("removing last cards!");
     for lastc in blacklist.iter(){
         let i = cards.iter().position(|x| x == lastc);
         if i.is_none(){ continue; }
         cards.remove(i.unwrap());
     }
 
-    println!("adding last cards!");
     while !last_16.is_empty(){
         let index = rand_range(0, last_16.len());
         v.push(last_16.remove(index));
     }
 
-    println!("adding remaining cards!");
     while !cards.is_empty(){
         let index = rand_range(0, cards.len());
         v.push(cards.remove(index));
@@ -157,6 +160,9 @@ impl BoardBuilder{
         let mut v = Vec::new();
         let total_cards = self.total;
 
+        if self.tape.len() == 0{
+            return v;
+        }
         for _ in 0..total_cards{
             v.push(self.create_board());
         }
@@ -165,13 +171,22 @@ impl BoardBuilder{
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct BlackList(pub u8);
+#[derive(Debug, PartialEq, Eq)]
 pub struct Set(pub usize, pub usize, pub u8);
+#[derive(Debug, PartialEq, Eq)]
 pub struct MarkPair(pub usize, pub usize, pub usize, pub usize);
+#[derive(Debug, PartialEq, Eq)]
 pub struct RandomMarkPair;
+#[derive(Debug, PartialEq, Eq)]
 pub struct RandomCenterMarkPair;
+#[derive(Debug, PartialEq, Eq)]
 pub struct UpperCenterMarkPair;
+#[derive(Debug, PartialEq, Eq)]
 pub struct LowerCenterMarkPair;
+#[derive(Debug, PartialEq, Eq)]
+pub struct SetCount(pub usize);
 
 impl BoardActor for BlackList{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
@@ -235,6 +250,13 @@ impl BoardActor for LowerCenterMarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.board[1][2] = DataCard::CloneMark;
         b.board[2][2] = DataCard::CloneMark;
+        Ok(()) 
+    }
+}
+
+impl BoardActor for SetCount{
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+        b.total = self.0;
         Ok(()) 
     }
 }
