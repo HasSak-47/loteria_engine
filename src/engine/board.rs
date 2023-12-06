@@ -1,6 +1,6 @@
 use std::fmt::{Display, Debug};
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct BasicBoard<T>([T; 16]);
 
 #[allow(dead_code)]
