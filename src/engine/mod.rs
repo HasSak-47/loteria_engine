@@ -1,9 +1,9 @@
 pub mod random;
 pub mod board;
+
 use std::fmt::Display;
 
 use board::BasicBoard;
-
 use crate::engine::random::{rand_range, rand_range_pair};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -116,7 +116,7 @@ impl BoardBuilder{
     }
 
     pub fn generate_tape(mut self) -> Self{
-        let total_cards = CARD_COUNT / self.total;
+        let total_cards = 1 + ((self.total * 16) / CARD_COUNT);
         let mut tape = Vec::new();
         tape.append(&mut generate_deck(&[], &self.blacklist));
         for _ in 0..total_cards {
