@@ -106,6 +106,12 @@ impl BoardBuilder{
         self
     }
 
+    pub fn set_total_ref(&mut self, total: usize) -> Self{
+        self.total = total;
+        self.board_prototypes.resize(total, DataBoard::default());
+        self
+    }
+
     pub fn act_on<B: BoardActor>(mut self, actor: B) -> Self{
         actor.act_on(&mut self).unwrap();
         self
@@ -272,7 +278,7 @@ impl BoardActor for LowerCenterMarkPair{
 
 impl BoardActor for SetCount{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
-        b.total = self.0;
+        b.set_total_ref(self.0);
         Ok(()) 
     }
 }
