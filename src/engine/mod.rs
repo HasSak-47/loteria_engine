@@ -1,7 +1,7 @@
 pub mod random;
 pub mod board;
 
-use std::fmt::Display;
+use std::{fmt::Display, default};
 
 use board::BasicBoard;
 use crate::engine::random::{rand_range, rand_range_pair};
@@ -102,6 +102,7 @@ impl BoardBuilder{
 
     pub fn set_total(mut self, total: usize) -> Self{
         self.total = total;
+        self.board_prototypes.resize(total, DataBoard::default());
         self
     }
 
