@@ -229,11 +229,10 @@ impl BoardActor for MarkPair{
 impl BoardActor for RandomMarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.board_size -= 1;
-        let source = rand_range_pair(0, 4);
-        let mut target =  rand_range_pair(0, 4);
-        while target == source{ target = rand_range_pair(0, 4); }
-        
         for board in &mut b.board_prototypes{
+            let source = rand_range_pair(0, 4);
+            let mut target =  rand_range_pair(0, 4);
+            while target == source{ target = rand_range_pair(0, 4); }
             board[source.0][source.1] = DataCard::CloneMark;
             board[target.0][target.1] = DataCard::CloneMark;
         }
@@ -244,11 +243,10 @@ impl BoardActor for RandomMarkPair{
 impl BoardActor for RandomCenterMarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.board_size -= 1;
-        let source = rand_range_pair(0, 2);
-        let mut target =  rand_range_pair(0, 2);
-        while target == source{ target = rand_range_pair(0, 2); }
-        
         for board in &mut b.board_prototypes{
+            let source = rand_range_pair(0, 2);
+            let mut target =  rand_range_pair(0, 2);
+            while target == source{ target = rand_range_pair(0, 2); }
             board[source.0 + 1][source.1 + 1] = DataCard::CloneMark;
             board[target.0 + 1][target.1 + 1] = DataCard::CloneMark;
         }
