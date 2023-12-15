@@ -50,13 +50,9 @@ pub enum DataCard{
 
 pub type DataBoard = BasicBoard<DataCard>;
 
-pub trait BoardActor{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()>;
-}
-
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct BoardBuilder{
-    board: DataBoard,
+    board_prototypes: Vec<DataBoard>,
     blacklist: Vec<u8>,
 
     board_size: usize,
@@ -110,7 +106,9 @@ impl BoardBuilder{
     }
 
     pub fn act_on<B: BoardActor>(mut self, actor: B) -> Self{
-        let _ = actor.act_on(&mut self);
+        for b in &mut self.board_prototypes{
+            actor.act_on(&mut self).unwrap();
+        }
         self
 
     }
@@ -146,12 +144,13 @@ impl BoardBuilder{
 
     pub fn create_board(&mut self) -> Board{
         let mut b = Board::default();
+        let board_proto = self.board_prototypes.pop().unwrap();
         let mut clone_val = None;
         for ij in 0..16{
             let i = ij % 4;
             let j = ij / 4;
 
-            let data_card = self.board[i][j];
+            let data_card = board_proto[i][j];
             b[i][j] = self.get_card(data_card, &mut clone_val);
         }
 
@@ -190,6 +189,10 @@ pub struct LowerCenterMarkPair;
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetCount(pub usize);
 
+pub trait BoardActor{
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()>;
+}
+
 impl BoardActor for BlackList{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.blacklist.push(self.0);
@@ -200,7 +203,9 @@ impl BoardActor for BlackList{
 impl BoardActor for Set{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.board_size -= 1;
-        b.board[self.0][self.1] = DataCard::Set(self.2);
+        for board in &mut b.board_prototypes{
+            board[self.0][self.1] = DataCard::Set(self.2);
+        }
         Ok(()) 
     }
 }
@@ -208,8 +213,10 @@ impl BoardActor for Set{
 impl BoardActor for MarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.board_size -= 1;
-        b.board[self.0][self.1] = DataCard::CloneMark;
-        b.board[self.2][self.3] = DataCard::CloneMark;
+        for board in &mut b.board_prototypes{
+            board[self.0][self.1] = DataCard::CloneMark;
+            board[self.2][self.3] = DataCard::CloneMark;
+        }
         Ok(()) 
     }
 }
@@ -221,8 +228,10 @@ impl BoardActor for RandomMarkPair{
         let mut target =  rand_range_pair(0, 4);
         while target == source{ target = rand_range_pair(0, 4); }
         
-        b.board[source.0][source.1] = DataCard::CloneMark;
-        b.board[target.0][target.1] = DataCard::CloneMark;
+        for board in &mut b.board_prototypes{
+            board[source.0][source.1] = DataCard::CloneMark;
+            board[target.0][target.1] = DataCard::CloneMark;
+        }
         Ok(()) 
     }
 }
@@ -234,24 +243,30 @@ impl BoardActor for RandomCenterMarkPair{
         let mut target =  rand_range_pair(0, 2);
         while target == source{ target = rand_range_pair(0, 2); }
         
-        b.board[source.0 + 1][source.1 + 1] = DataCard::CloneMark;
-        b.board[target.0 + 1][target.1 + 1] = DataCard::CloneMark;
+        for board in &mut b.board_prototypes{
+            board[source.0 + 1][source.1 + 1] = DataCard::CloneMark;
+            board[target.0 + 1][target.1 + 1] = DataCard::CloneMark;
+        }
         Ok(()) 
     }
 }
 
 impl BoardActor for UpperCenterMarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
-        b.board[1][1] = DataCard::CloneMark;
-        b.board[2][1] = DataCard::CloneMark;
+        for board in &mut b.board_prototypes{
+            board[1][1] = DataCard::CloneMark;
+            board[2][1] = DataCard::CloneMark;
+        }
         Ok(()) 
     }
 }
 
 impl BoardActor for LowerCenterMarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
-        b.board[1][2] = DataCard::CloneMark;
-        b.board[2][2] = DataCard::CloneMark;
+        for board in &mut b.board_prototypes{
+            board[1][2] = DataCard::CloneMark;
+            board[2][2] = DataCard::CloneMark;
+        }
         Ok(()) 
     }
 }
@@ -268,7 +283,7 @@ impl Display for BoardBuilder{
         for ij in 0..16 {
             let i = ij % 4; 
             let j = ij / 4; 
-            write!(f, "{:?} ", self.board[i][j])?;
+            write!(f, "{:?} ", self.board_prototypes[0][i][j])?;
             if i == 3{
                 writeln!(f)?;
             }
