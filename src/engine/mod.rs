@@ -106,7 +106,7 @@ impl BoardBuilder{
         self
     }
 
-    pub fn set_total_ref(&mut self, total: usize) -> Self{
+    pub fn set_total_ref(&mut self, total: usize) -> &mut Self{
         self.total = total;
         self.board_prototypes.resize(total, DataBoard::default());
         self
