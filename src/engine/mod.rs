@@ -106,9 +106,7 @@ impl BoardBuilder{
     }
 
     pub fn act_on<B: BoardActor>(mut self, actor: B) -> Self{
-        for b in &mut self.board_prototypes{
-            actor.act_on(&mut self).unwrap();
-        }
+        actor.act_on(&mut self).unwrap();
         self
 
     }
