@@ -6,7 +6,7 @@ pub struct BasicBoard<T>([T; 16]);
 #[allow(dead_code)]
 impl<T> BasicBoard<T>{
     pub fn get(&self, i: usize) -> &T{ &self.0[i] }
-    pub fn get_mut(&mut self, i: usize) -> &T{ &mut self.0[i] }
+    pub fn get_mut(&mut self, i: usize) -> &mut T{ &mut self.0[i] }
 }
 
 impl<T> std::ops::Index<usize> for BasicBoard<T>{

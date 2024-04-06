@@ -1,11 +1,13 @@
 pub mod random;
 pub mod board;
 
-use std::{fmt::Display, default};
+#[cfg(test)]
+pub mod test;
+
+use std::fmt::Display;
 
 use board::BasicBoard;
 use crate::engine::random::{rand_range, rand_range_pair};
-
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Card{
     Value(u8),
@@ -45,26 +47,15 @@ pub enum DataCard{
     #[default]
     NotSpecial,
     CloneMark,
+    Forced(u8),
     Set(u8),
 }
 
 pub type DataBoard = BasicBoard<DataCard>;
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct BoardBuilder{
-    board_prototypes: Vec<DataBoard>,
-    blacklist: Vec<u8>,
-
-    board_size: usize,
-    tape: Vec<u8>,
-    total: usize
-}
-
-const CARD_COUNT : usize = 54;
-
-fn generate_deck(last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
+fn generate_deck(card_count : usize, last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
     let mut v = Vec::new();
-    let mut cards  : Vec<u8> = (0u8..CARD_COUNT as u8).collect();
+    let mut cards  : Vec<u8> = (0u8..card_count as u8).collect();
     let mut last_16: Vec<u8> = last_16.into();
 
     // remove the blacklist from the cards
@@ -75,7 +66,7 @@ fn generate_deck(last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
     }
 
     // remove the last_16 from the cards 
-    for lastc in blacklist.iter(){
+    for lastc in last_16.iter(){
         let i = cards.iter().position(|x| x == lastc);
         if i.is_none(){ continue; }
         cards.remove(i.unwrap());
@@ -95,9 +86,27 @@ fn generate_deck(last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
     v
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct BoardBuilder{
+    board_prototypes: Vec<DataBoard>,
+    blacklist: Vec<u8>,
+    forcelist: Vec<u8>,
+
+    count: usize,
+
+    board_size: usize,
+    tape: Vec<u8>,
+    total: usize
+}
+
 impl BoardBuilder{
     pub fn new() -> Self{
-        Self {board_size: 16, ..Default::default()}
+        Self {board_size: 16, count: 54, ..Default::default()}
+    }
+
+    pub fn set_count(mut self, count: usize) -> Self{
+        self.count = count;
+        self
     }
 
     pub fn set_total(mut self, total: usize) -> Self{
@@ -115,15 +124,14 @@ impl BoardBuilder{
     pub fn act_on<B: BoardActor>(mut self, actor: B) -> Self{
         actor.act_on(&mut self).unwrap();
         self
-
     }
 
     pub fn generate_tape(mut self) -> Self{
-        let total_cards = 1 + ((self.total * 16) / CARD_COUNT);
+        let total_cards = 1 + ((self.total * 16) / self.count);
         let mut tape = Vec::new();
-        tape.append(&mut generate_deck(&[], &self.blacklist));
+        tape.append(&mut generate_deck(self.count, &[], &self.blacklist));
         for _ in 0..total_cards {
-            tape.append(&mut generate_deck(&tape[(tape.len() - 16)..(tape.len())], &self.blacklist));
+            tape.append(&mut generate_deck(self.count, &tape[(tape.len() - 16)..(tape.len())], &self.blacklist));
         }
         self.tape = tape;
 
@@ -144,11 +152,13 @@ impl BoardBuilder{
                 }
             },
             DC::Set(s) => Card::Value(s),
+            DC::Forced(s) => Card::Value(s),
         }
     }
 
     pub fn create_board(&mut self) -> Board{
         let mut b = Board::default();
+
         let board_proto = self.board_prototypes.pop().unwrap();
         let mut clone_val = None;
         for ij in 0..16{
@@ -177,30 +187,52 @@ impl BoardBuilder{
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct BlackList(pub u8);
-#[derive(Debug, PartialEq, Eq)]
-pub struct Set(pub usize, pub usize, pub u8);
-#[derive(Debug, PartialEq, Eq)]
-pub struct MarkPair(pub usize, pub usize, pub usize, pub usize);
-#[derive(Debug, PartialEq, Eq)]
-pub struct RandomMarkPair;
-#[derive(Debug, PartialEq, Eq)]
-pub struct RandomCenterMarkPair;
-#[derive(Debug, PartialEq, Eq)]
-pub struct UpperCenterMarkPair;
-#[derive(Debug, PartialEq, Eq)]
-pub struct LowerCenterMarkPair;
-#[derive(Debug, PartialEq, Eq)]
-pub struct SetCount(pub usize);
-
 pub trait BoardActor{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()>;
 }
 
+#[repr(transparent)]
+pub struct BoardActorC(
+    Box<dyn BoardActor>,
+);
+
+macro_rules! new_board_actor {
+    ($name:ident, $cname:ident, $($tname: ident: $type:ty), *) => {
+        #[repr(C)]
+        #[derive(Debug, PartialEq, Eq)]
+        pub struct $name(  $( pub(super) $type, )* );
+
+        impl $name{
+            pub fn new($( $tname: $type, ) *) -> Self{
+                Self($( $tname, )*)
+            }
+        }
+    };
+}
+
+new_board_actor!(BlackList, new_blacklist, val: u8);
+new_board_actor!(Force, new_force, val: u8);
+new_board_actor!(Set, new_set, i: usize, j: usize, val: u8);
+new_board_actor!(MarkPair, new_mark_pair, i: usize, j: usize, k: usize, l: usize);
+new_board_actor!(RandomMarkPair, new_random_mark_pair,);
+new_board_actor!(RandomCenterMarkPair, new_random_center_mark_pair,);
+new_board_actor!(UpperCenterMarkPair, new_upper_center_mark_pair,);
+new_board_actor!(LowerCenterMarkPair, new_lower_center_mark_pair,);
+new_board_actor!(SetTotal, new_set_total, val: usize);
+new_board_actor!(SetCount, new_set_count, val: usize);
+new_board_actor!(SetPair, new_set_pair, pair: usize, card: usize);
+
 impl BoardActor for BlackList{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.blacklist.push(self.0);
+        Ok(()) 
+    }
+}
+
+impl BoardActor for Force{
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+        b.board_size -= 1;
+        b.forcelist.push(self.0);
         Ok(()) 
     }
 }
@@ -274,9 +306,29 @@ impl BoardActor for LowerCenterMarkPair{
     }
 }
 
-impl BoardActor for SetCount{
+impl BoardActor for SetTotal{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
         b.set_total_ref(self.0);
+        Ok(()) 
+    }
+}
+
+impl BoardActor for SetCount{
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+        b.count = self.0;
+        Ok(()) 
+    }
+}
+
+impl BoardActor for SetPair{
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+        b.board_size -= 1;
+        b.blacklist.push(self.0 as u8);
+        let board = &mut b.board_prototypes[self.1];
+        for i in 0..16{
+            let t = board.get_mut(i);
+            *t = DataCard::Set(self.0 as u8);
+        }
         Ok(()) 
     }
 }
