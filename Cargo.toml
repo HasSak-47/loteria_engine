@@ -14,4 +14,4 @@ wasm-bindgen = "0.2"
 
 [lib]
 name = "loteria_engine"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]

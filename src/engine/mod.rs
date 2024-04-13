@@ -8,6 +8,8 @@ use std::fmt::Display;
 
 use board::BasicBoard;
 use crate::engine::random::{rand_range, rand_range_pair};
+use anyhow::Result;
+
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Card{
     Value(u8),
@@ -188,7 +190,7 @@ impl BoardBuilder{
 }
 
 pub trait BoardActor{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()>;
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()>;
 }
 
 #[repr(transparent)]
@@ -200,7 +202,7 @@ macro_rules! new_board_actor {
     ($name:ident, $cname:ident, $($tname: ident: $type:ty), *) => {
         #[repr(C)]
         #[derive(Debug, PartialEq, Eq)]
-        pub struct $name(  $( pub(super) $type, )* );
+        pub struct $name(  $( pub $type, )* );
 
         impl $name{
             pub fn new($( $tname: $type, ) *) -> Self{
@@ -223,14 +225,14 @@ new_board_actor!(SetCount, new_set_count, val: usize);
 new_board_actor!(SetPair, new_set_pair, pair: usize, card: usize);
 
 impl BoardActor for BlackList{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.blacklist.push(self.0);
         Ok(()) 
     }
 }
 
 impl BoardActor for Force{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.board_size -= 1;
         b.forcelist.push(self.0);
         Ok(()) 
@@ -238,7 +240,7 @@ impl BoardActor for Force{
 }
 
 impl BoardActor for Set{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
             board[self.0][self.1] = DataCard::Set(self.2);
@@ -248,7 +250,7 @@ impl BoardActor for Set{
 }
 
 impl BoardActor for MarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
             board[self.0][self.1] = DataCard::CloneMark;
@@ -259,7 +261,7 @@ impl BoardActor for MarkPair{
 }
 
 impl BoardActor for RandomMarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
             let source = rand_range_pair(0, 4);
@@ -273,7 +275,7 @@ impl BoardActor for RandomMarkPair{
 }
 
 impl BoardActor for RandomCenterMarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
             let source = rand_range_pair(0, 2);
@@ -287,7 +289,7 @@ impl BoardActor for RandomCenterMarkPair{
 }
 
 impl BoardActor for UpperCenterMarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         for board in &mut b.board_prototypes{
             board[1][1] = DataCard::CloneMark;
             board[2][1] = DataCard::CloneMark;
@@ -297,7 +299,7 @@ impl BoardActor for UpperCenterMarkPair{
 }
 
 impl BoardActor for LowerCenterMarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         for board in &mut b.board_prototypes{
             board[1][2] = DataCard::CloneMark;
             board[2][2] = DataCard::CloneMark;
@@ -307,27 +309,29 @@ impl BoardActor for LowerCenterMarkPair{
 }
 
 impl BoardActor for SetTotal{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.set_total_ref(self.0);
         Ok(()) 
     }
 }
 
 impl BoardActor for SetCount{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.count = self.0;
         Ok(()) 
     }
 }
 
 impl BoardActor for SetPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<(),()> {
+    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.board_size -= 1;
         b.blacklist.push(self.0 as u8);
         let board = &mut b.board_prototypes[self.1];
         for i in 0..16{
             let t = board.get_mut(i);
-            *t = DataCard::Set(self.0 as u8);
+            if let DataCard::CloneMark = t{
+                *t = DataCard::Set(self.0 as u8);
+            }
         }
         Ok(()) 
     }
