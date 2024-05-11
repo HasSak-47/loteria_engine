@@ -187,6 +187,9 @@ impl BoardBuilder{
 
         v
     }
+
+    // ugly getters
+    pub fn get_count(&self) -> usize{ self.count }
 }
 
 pub trait BoardActor{
