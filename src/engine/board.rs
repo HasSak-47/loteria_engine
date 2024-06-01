@@ -3,10 +3,17 @@ use std::fmt::{Display, Debug};
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct BasicBoard<T>([T; 16]);
 
-#[allow(dead_code)]
 impl<T> BasicBoard<T>{
     pub fn get(&self, i: usize) -> &T{ &self.0[i] }
     pub fn get_mut(&mut self, i: usize) -> &mut T{ &mut self.0[i] }
+
+    pub const fn new(data: [T; 16]) -> Self{
+        Self(data)
+    }
+}
+
+impl<T: Copy> BasicBoard<T>{
+    pub const fn new_copy(data: T) -> Self{ Self([data; 16]) }
 }
 
 impl<T> std::ops::Index<usize> for BasicBoard<T>{
