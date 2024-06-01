@@ -43,7 +43,7 @@ pub mod capi {
     #[no_mangle]
     pub unsafe extern "C" fn build(builder: *mut BoardBuilderC) { 
         let _builder = match (*builder).0.take(){
-            Some(b) => b.generate_tape(),
+            Some(b) => b.generate_tapes(),
             None => {
                 println!("No builder found!");
                 return;

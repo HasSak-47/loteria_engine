@@ -1,4 +1,5 @@
 pub mod random;
+pub mod tape;
 pub mod board;
 
 #[cfg(test)]
@@ -9,6 +10,8 @@ use std::fmt::Display;
 use board::BasicBoard;
 use crate::engine::random::{rand_range, rand_range_pair};
 use anyhow::Result;
+
+use tape::*;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Card{
@@ -44,6 +47,13 @@ impl Card {
 
 pub type Board = BasicBoard<Card>;
 
+/**
+holds the configuration of a card
+ .0 is the tape that it will use
+ */
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConfigCard(pub u8);
+
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataCard{
     #[default]
@@ -54,50 +64,18 @@ pub enum DataCard{
 }
 
 pub type DataBoard = BasicBoard<DataCard>;
-
-fn generate_deck(card_count : usize, last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
-    let mut v = Vec::new();
-    let mut cards  : Vec<u8> = (0u8..card_count as u8).collect();
-    let mut last_16: Vec<u8> = last_16.into();
-
-    // remove the blacklist from the cards
-    for lastc in blacklist.iter(){
-        let i = cards.iter().position(|x| x == lastc);
-        if i.is_none(){ continue; }
-        cards.remove(i.unwrap());
-    }
-
-    // remove the last_16 from the cards 
-    for lastc in last_16.iter(){
-        let i = cards.iter().position(|x| x == lastc);
-        if i.is_none(){ continue; }
-        cards.remove(i.unwrap());
-    }
-
-    while !last_16.is_empty(){
-        let index = rand_range(0, last_16.len());
-        v.push(last_16.remove(index));
-    }
-
-    while !cards.is_empty(){
-        let index = rand_range(0, cards.len());
-        v.push(cards.remove(index));
-    }
-    v.reverse();
-
-    v
-}
+pub type ConfigBoard = BasicBoard<ConfigCard>;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct BoardBuilder{
+    config: ConfigBoard,
     board_prototypes: Vec<DataBoard>,
     blacklist: Vec<u8>,
     forcelist: Vec<u8>,
 
     count: usize,
-
     board_size: usize,
-    tape: Vec<u8>,
+    tapes: Vec<Tape>,
     total: usize
 }
 
@@ -128,26 +106,21 @@ impl BoardBuilder{
         self
     }
 
-    pub fn generate_tape(mut self) -> Self{
-        let total_cards = 1 + ((self.total * 16) / self.count);
-        let mut tape = Vec::new();
-        tape.append(&mut generate_deck(self.count, &[], &self.blacklist));
-        for _ in 0..total_cards {
-            tape.append(&mut generate_deck(self.count, &tape[(tape.len() - 16)..(tape.len())], &self.blacklist));
-        }
-        self.tape = tape;
-
+    pub fn generate_tapes(mut self) -> Self{
+        let tape = TapeGenerator::new(self.count, self.total, &self.blacklist);
+        self.tapes.push(tape.generate());
+        
         self
     }
 
     pub fn get_card(&mut self, data_card: DataCard, clone_val: &mut Option<Card>) -> Card{
         use DataCard as DC;
         match data_card{
-            DC::NotSpecial => Card::Value(self.tape.remove(0)),
+            DC::NotSpecial => Card::Value(self.tapes[0].0.remove(0)),
             DC::CloneMark => {
                 if clone_val.is_none(){
-                    *clone_val = Some(Card::Value(self.tape[0]));
-                    Card::Value(self.tape.remove(0))
+                    *clone_val = Some(Card::Value(self.tapes[0].0[0]));
+                    Card::Value(self.tapes[0].0.remove(0))
                 }
                 else {
                     clone_val.unwrap()
@@ -178,7 +151,7 @@ impl BoardBuilder{
         let mut v = Vec::new();
         let total_cards = self.total;
 
-        if self.tape.len() == 0{
+        if self.tapes[0].0.len() == 0{
             return v;
         }
         for _ in 0..total_cards{
