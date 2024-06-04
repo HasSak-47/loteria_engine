@@ -352,9 +352,9 @@ pub struct LuaActor{
 }
 
 impl LuaActor {
-    pub fn new(src: String) -> Self{
+    pub fn new<S: Into<String>>(src: S) -> Self{
         let lua = Lua::new();
-        return Self{src, lua}
+        return Self{src: src.into(), lua}
     }
     
     pub fn from_file(path: PathBuf) -> Result<Self>{
@@ -372,33 +372,38 @@ impl BoardActor for LuaActor{
 
         for (i, table) in b.board_prototypes.iter().enumerate(){
             let t = self.lua.create_table()?;
-            // lua starts the indices at 1
-            for i in 1..=16{
+            for i in 0..16{
                 use super::DataCard as DC;
-                match &table.get(i - 1){
-                    DC::NotSpecial => t.set(i, "NotSpecial")?,
-                    DC::CloneMark  => t.set(i, "CloneMark")?,
-                    DC::Set(v)     => t.set(i, *v)?,
+                match &table.get(i){
+                    // lua starts the indices at 1
+                    DC::NotSpecial => t.set(i + 1, "NotSpecial")?,
+                    DC::CloneMark  => t.set(i + 1, "CloneMark")?,
+                    DC::Set(v)     => t.set(i + 1, *v)?,
                 }
             }
 
-            tables.set(i, t)?;
+            // lua starts indices at 1
+            tables.set(i + 1, t)?;
         }
 
         self.lua.globals().set("board_prototypes", tables)?;
 
         self.lua
             .load(&self.src)
-            .exec()?;
+            .exec()
+            .map_err(|lua_err| anyhow!("[LUA ERROR] : {lua_err}"))?;
 
-        let luatables : LuaTable = self.lua.globals().get("board_prototypes")?;
+        let luatables : LuaTable = self.lua.globals().get("board_prototypes")
+            .map_err(|lua_err| anyhow!("[LUA ERROR] : PROTOTYPES NOT FOUND - {lua_err}"))?;
         for (i, table) in b.board_prototypes.iter_mut().enumerate(){
-            let t : LuaTable = luatables.get(i)?;
-            // lua starts the indices at 1
-            for i in 1..=16{
-                let lua_card : LuaValue = t.get(i)?;
+            let t : LuaTable = luatables.get(i + 1)?;
+            for i in 0..16{
+                // lua starts the indices at 1
+                let lua_card : LuaValue = t.get(i + 1)
+                    .map_err(|lua_err| anyhow!("[LUA ERROR] : CARD NOT FOUND - {lua_err}"))?;
+
                 use super::DataCard as DC;
-                *table.get_mut(i - 1) = match lua_card{
+                *table.get_mut(i) = match lua_card{
                     LuaValue::Integer(v) => DC::Set(v as u8),
                     LuaValue::String(s) => {
                         if s == "CloneMark" { DC::CloneMark }
@@ -407,7 +412,6 @@ impl BoardActor for LuaActor{
                     },
                     _ => DC::NotSpecial ,
                 };
-
             }
         }
 
