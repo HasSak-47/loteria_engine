@@ -1,26 +1,31 @@
 use anyhow::*;
 use super::*;
 
-fn test_tape(count: usize) -> Result<()>{
-    let t = BoardBuilder::new().act_on(SetCount(count)).generate_tape();
-    let tape = t.tape;
+const CARD_COUNT : usize = 54;
+
+fn test_tape(total: usize) -> Result<()>{
+    let t = BoardBuilder::new()
+        .act_on(SetTotal(total))
+        .act_on(SetCount(CARD_COUNT))
+        .generate_tapes();
+    let tape = &t.tapes[0];
     // check if each 16 card chunck is unique
     println!("tape: ");
-    for i in 0..tape.len(){
-        print!("{:2} ", tape[i]);
+    for i in 0..tape.0.len(){
+        print!("{:2} ", tape.0[i]);
         if i % 16 == 15{
             println!();
         }
     }
     println!();
-    for i in 0..count{
+    for i in 0..total{
         let start = i * 16;
         let end = start + 16;
-        let chunk = &tape[start..end];
+        let chunk = &tape.0[start..end];
         println!("chunk: {chunk:?}");
         let mut count = [ 0; CARD_COUNT];
         for j in start..end{
-            let v = tape[j];
+            let v = tape.0[j];
             if count[v as usize] != 0{
                 return Err(anyhow!("Failed at {i} with {v}"));
             }
@@ -56,10 +61,11 @@ fn test_board(board: &Board) -> anyhow::Result<()>{
     return Ok(());
 }
 
-fn test_boards(count: usize) -> Result<()>{
+fn test_boards(total: usize) -> Result<()>{
     let boards = BoardBuilder::new()
-        .act_on(SetCount(count))
-        .generate_tape()
+        .act_on(SetCount(CARD_COUNT))
+        .act_on(SetTotal(total))
+        .generate_tapes()
         .generate_boards();
 
     for board in boards.iter(){
