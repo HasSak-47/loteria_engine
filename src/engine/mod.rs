@@ -8,8 +8,8 @@ pub mod test;
 use std::fmt::Display;
 
 use board::BasicBoard;
-use crate::engine::random::{rand_range, rand_range_pair};
-use anyhow::{anyhow, Result};
+use crate::engine::random::rand_range_pair;
+use anyhow::Result;
 
 use tape::*;
 
@@ -352,14 +352,10 @@ impl Display for BoardBuilder{
             }
         }
 
-        Ok(())
-    }
-}
-
-
+        Ok(()) } }
 mod lua{
 use anyhow::*;
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{fmt::Display, fs::File, io::Read, path::PathBuf};
 
 use mlua::prelude::*;
 
@@ -438,6 +434,13 @@ impl BoardActor for LuaActor{
         Ok(())
     }
 }
+
+impl Display for LuaActor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "lua src:\n{}", self.src)
+    }
+}
+
 }
 
 pub use lua::LuaActor;
