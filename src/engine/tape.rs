@@ -4,8 +4,7 @@ pub fn generate_deck(card_count : usize, last_16 : &[u8], blacklist : &[u8]) -> 
     let mut v = Vec::new();
     let mut cards  : Vec<u8> = (0u8..card_count as u8).collect();
     let mut last_16: Vec<u8> = last_16.into();
-
-    // remove the blacklist from the cards
+// remove the blacklist from the cards
     for lastc in blacklist.iter(){
         let i = cards.iter().position(|x| x == lastc);
         if i.is_none(){ continue; }

@@ -8,8 +8,8 @@ pub mod test;
 use std::fmt::Display;
 
 use board::BasicBoard;
-use crate::engine::random::rand_range_pair;
-use anyhow::Result;
+use crate::engine::random::{rand_range, rand_range_pair};
+use anyhow::{anyhow, Result};
 
 use tape::*;
 
@@ -108,6 +108,11 @@ impl BoardBuilder{
         self
     }
 
+    pub fn set_count_ref(&mut self, count: usize) -> &mut Self{
+        self.count = count;
+        self
+    }
+
     pub fn set_total(mut self, total: usize) -> Self{
         self.total = total;
         self.board_prototypes.resize(total, DataBoard::default());
@@ -122,6 +127,11 @@ impl BoardBuilder{
 
     pub fn act_on<B: BoardActor>(mut self, actor: B) -> Self{
         actor.act_on(&mut self).unwrap();
+        self
+    }
+
+    pub fn act_on_ref<B: BoardActor>(&mut self, actor: B) -> &mut Self{
+        actor.act_on(self).unwrap();
         self
     }
 
@@ -345,3 +355,89 @@ impl Display for BoardBuilder{
         Ok(())
     }
 }
+
+
+mod lua{
+use anyhow::*;
+use std::{fs::File, io::Read, path::PathBuf};
+
+use mlua::prelude::*;
+
+use super::BoardActor;
+
+#[derive(Debug, Default)]
+pub struct LuaActor{
+    src: String,
+    lua: Lua,
+}
+
+impl LuaActor {
+    pub fn new<S: Into<String>>(src: S) -> Self{
+        let lua = Lua::new();
+        return Self{src: src.into(), lua}
+    }
+    
+    pub fn from_file(path: PathBuf) -> Result<Self>{
+        let mut file = File::open(path)?;
+        let mut src = String::new();
+        file.read_to_string(&mut src)?;
+
+        Ok(Self{src, ..Default::default()})
+    }
+}
+
+impl BoardActor for LuaActor{
+    fn act_on(&self, b: &mut super::BoardBuilder) -> Result<()> {
+        let tables = self.lua.create_table()?;
+
+        for (i, table) in b.board_prototypes.iter().enumerate(){
+            let t = self.lua.create_table()?;
+            for i in 0..16{
+                use super::DataAction as DC;
+                match table.get(i).0{
+                    // lua starts the indices at 1
+                    DC::NotSpecial => t.set(i + 1, "NotSpecial")?,
+                    DC::CloneMark  => t.set(i + 1, "CloneMark")?,
+                    DC::Forced(v)  => t.set(i + 1, v)?,
+                }
+            }
+
+            // lua starts indices at 1
+            tables.set(i + 1, t)?;
+        }
+
+        self.lua.globals().set("board_prototypes", tables)?;
+
+        self.lua
+            .load(&self.src)
+            .exec()
+            .map_err(|lua_err| anyhow!("[LUA ERROR] : {lua_err}"))?;
+
+        let luatables : LuaTable = self.lua.globals().get("board_prototypes")
+            .map_err(|lua_err| anyhow!("[LUA ERROR] : PROTOTYPES NOT FOUND - {lua_err}"))?;
+        for (i, table) in b.board_prototypes.iter_mut().enumerate(){
+            let t : LuaTable = luatables.get(i + 1)?;
+            for i in 0..16{
+                // lua starts the indices at 1
+                let lua_card : LuaValue = t.get(i + 1)
+                    .map_err(|lua_err| anyhow!("[LUA ERROR] : CARD NOT FOUND - {lua_err}"))?;
+
+                use super::DataAction as DC;
+                table.get_mut(i).0 = match lua_card{
+                    LuaValue::Integer(v) => DC::Forced(v as u8),
+                    LuaValue::String(s) => {
+                        if s == "CloneMark" { DC::CloneMark }
+                        else { DC::NotSpecial }
+
+                    },
+                    _ => DC::NotSpecial ,
+                };
+            }
+        }
+
+        Ok(())
+    }
+}
+}
+
+pub use lua::LuaActor;
