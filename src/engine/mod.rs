@@ -8,11 +8,14 @@ pub mod test;
 use std::fmt::Display;
 
 use board::BasicBoard;
-use crate::engine::random::{rand_range, rand_range_pair};
+use crate::engine::random::rand_range_pair;
 use anyhow::Result;
 
 use tape::*;
 
+/**
+the value in the produced board
+ */
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Card{
     Value(u8),
@@ -45,6 +48,9 @@ impl Card {
     }
 }
 
+/**
+The final board
+ */
 pub type Board = BasicBoard<Card>;
 
 /**
@@ -53,22 +59,35 @@ holds the configuration of a card
  */
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConfigCard(pub u8);
-
+ 
+/**
+The action that the builder will do when the stack is consumed
+NotSpecial: Will just set the top value in the stack
+CloneMark: All of this will take the same value from the top of the stack
+Forced: Will ignore the stack and put a value in that cell
+ */
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DataCard{
+pub enum DataAction{
     #[default]
     NotSpecial,
     CloneMark,
     Forced(u8),
-    Set(u8),
 }
 
+/**
+This holds the action that will be used and which stack will be poped
+.0 is the DataAction and .1 is the index of the Tape
+ */
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DataCard(DataAction, usize);
+
+/**
+Is the Instructions that the consumption of the tape/stack will follow
+ */
 pub type DataBoard = BasicBoard<DataCard>;
-pub type ConfigBoard = BasicBoard<ConfigCard>;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct BoardBuilder{
-    config: ConfigBoard,
     board_prototypes: Vec<DataBoard>,
     blacklist: Vec<u8>,
     forcelist: Vec<u8>,
@@ -114,8 +133,8 @@ impl BoardBuilder{
     }
 
     pub fn get_card(&mut self, data_card: DataCard, clone_val: &mut Option<Card>) -> Card{
-        use DataCard as DC;
-        match data_card{
+        use DataAction as DC;
+        match data_card.0{
             DC::NotSpecial => Card::Value(self.tapes[0].0.remove(0)),
             DC::CloneMark => {
                 if clone_val.is_none(){
@@ -126,7 +145,6 @@ impl BoardBuilder{
                     clone_val.unwrap()
                 }
             },
-            DC::Set(s) => Card::Value(s),
             DC::Forced(s) => Card::Value(s),
         }
     }
@@ -219,7 +237,7 @@ impl BoardActor for Set{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
-            board[self.0][self.1] = DataCard::Set(self.2);
+            board[self.0][self.1].0 = DataAction::Forced(self.2);
         }
         Ok(()) 
     }
@@ -229,8 +247,8 @@ impl BoardActor for MarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
-            board[self.0][self.1] = DataCard::CloneMark;
-            board[self.2][self.3] = DataCard::CloneMark;
+            board[self.0][self.1].0 = DataAction::CloneMark;
+            board[self.2][self.3].0 = DataAction::CloneMark;
         }
         Ok(()) 
     }
@@ -243,8 +261,8 @@ impl BoardActor for RandomMarkPair{
             let source = rand_range_pair(0, 4);
             let mut target =  rand_range_pair(0, 4);
             while target == source{ target = rand_range_pair(0, 4); }
-            board[source.0][source.1] = DataCard::CloneMark;
-            board[target.0][target.1] = DataCard::CloneMark;
+            board[source.0][source.1].0 = DataAction::CloneMark;
+            board[target.0][target.1].0 = DataAction::CloneMark;
         }
         Ok(()) 
     }
@@ -257,8 +275,8 @@ impl BoardActor for RandomCenterMarkPair{
             let source = rand_range_pair(0, 2);
             let mut target =  rand_range_pair(0, 2);
             while target == source{ target = rand_range_pair(0, 2); }
-            board[source.0 + 1][source.1 + 1] = DataCard::CloneMark;
-            board[target.0 + 1][target.1 + 1] = DataCard::CloneMark;
+            board[source.0 + 1][source.1 + 1].0 = DataAction::CloneMark;
+            board[target.0 + 1][target.1 + 1].0 = DataAction::CloneMark;
         }
         Ok(()) 
     }
@@ -267,8 +285,8 @@ impl BoardActor for RandomCenterMarkPair{
 impl BoardActor for UpperCenterMarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         for board in &mut b.board_prototypes{
-            board[1][1] = DataCard::CloneMark;
-            board[2][1] = DataCard::CloneMark;
+            board[1][1].0 = DataAction::CloneMark;
+            board[2][1].0 = DataAction::CloneMark;
         }
         Ok(()) 
     }
@@ -277,8 +295,8 @@ impl BoardActor for UpperCenterMarkPair{
 impl BoardActor for LowerCenterMarkPair{
     fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
         for board in &mut b.board_prototypes{
-            board[1][2] = DataCard::CloneMark;
-            board[2][2] = DataCard::CloneMark;
+            board[1][2].0 = DataAction::CloneMark;
+            board[2][2].0 = DataAction::CloneMark;
         }
         Ok(()) 
     }
@@ -304,9 +322,9 @@ impl BoardActor for SetPair{
         b.blacklist.push(self.0 as u8);
         let board = &mut b.board_prototypes[self.1];
         for i in 0..16{
-            let t = board.get_mut(i);
-            if let DataCard::CloneMark = t{
-                *t = DataCard::Set(self.0 as u8);
+            let t = &mut board.get_mut(i).0;
+            if let DataAction::CloneMark = t{
+                *t = DataAction::Forced(self.0 as u8);
             }
         }
         Ok(()) 
