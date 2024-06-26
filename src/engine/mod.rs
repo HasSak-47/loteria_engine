@@ -1,6 +1,7 @@
 pub mod random;
 pub mod tape;
 pub mod board;
+mod lua;
 
 #[cfg(test)]
 pub mod test;
@@ -125,14 +126,8 @@ impl BoardBuilder{
         self
     }
 
-    pub fn act_on<B: BoardActor>(mut self, actor: B) -> Self{
-        actor.act_on(&mut self).unwrap();
-        self
-    }
-
-    pub fn act_on_ref<B: BoardActor>(&mut self, actor: B) -> &mut Self{
-        actor.act_on(self).unwrap();
-        self
+    pub fn act_on<B: BoardActor>(self, actor: B) -> Self{
+        actor.act_on(self).unwrap()
     }
 
     pub fn generate_tapes(mut self) -> Self{
@@ -194,7 +189,7 @@ impl BoardBuilder{
 }
 
 pub trait BoardActor{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()>;
+    fn act_on(&self, b: BoardBuilder) -> Result<BoardBuilder>;
 }
 
 #[repr(transparent)]
@@ -229,43 +224,43 @@ new_board_actor!(SetCount, new_set_count, val: usize);
 new_board_actor!(SetPair, new_set_pair, pair: usize, card: usize);
 
 impl BoardActor for BlackList{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.blacklist.push(self.0);
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for Force{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.board_size -= 1;
         b.forcelist.push(self.0);
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for Set{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
             board[self.0][self.1].0 = DataAction::Forced(self.2);
         }
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for MarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
             board[self.0][self.1].0 = DataAction::CloneMark;
             board[self.2][self.3].0 = DataAction::CloneMark;
         }
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for RandomMarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
             let source = rand_range_pair(0, 4);
@@ -274,12 +269,12 @@ impl BoardActor for RandomMarkPair{
             board[source.0][source.1].0 = DataAction::CloneMark;
             board[target.0][target.1].0 = DataAction::CloneMark;
         }
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for RandomCenterMarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.board_size -= 1;
         for board in &mut b.board_prototypes{
             let source = rand_range_pair(0, 2);
@@ -288,46 +283,46 @@ impl BoardActor for RandomCenterMarkPair{
             board[source.0 + 1][source.1 + 1].0 = DataAction::CloneMark;
             board[target.0 + 1][target.1 + 1].0 = DataAction::CloneMark;
         }
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for UpperCenterMarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         for board in &mut b.board_prototypes{
             board[1][1].0 = DataAction::CloneMark;
             board[2][1].0 = DataAction::CloneMark;
         }
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for LowerCenterMarkPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         for board in &mut b.board_prototypes{
             board[1][2].0 = DataAction::CloneMark;
             board[2][2].0 = DataAction::CloneMark;
         }
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for SetTotal{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.set_total_ref(self.0);
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for SetCount{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.count = self.0;
-        Ok(()) 
+        Ok(b) 
     }
 }
 
 impl BoardActor for SetPair{
-    fn act_on(&self, b: &mut BoardBuilder) -> Result<()> {
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
         b.board_size -= 1;
         b.blacklist.push(self.0 as u8);
         let board = &mut b.board_prototypes[self.1];
@@ -337,7 +332,7 @@ impl BoardActor for SetPair{
                 *t = DataAction::Forced(self.0 as u8);
             }
         }
-        Ok(()) 
+        Ok(b) 
     }
 }
 
@@ -353,94 +348,5 @@ impl Display for BoardBuilder{
         }
 
         Ok(()) } }
-mod lua{
-use anyhow::*;
-use std::{fmt::Display, fs::File, io::Read, path::PathBuf};
 
-use mlua::prelude::*;
-
-use super::BoardActor;
-
-#[derive(Debug, Default)]
-pub struct LuaActor{
-    src: String,
-    lua: Lua,
-}
-
-impl LuaActor {
-    pub fn new<S: Into<String>>(src: S) -> Self{
-        let lua = Lua::new();
-        return Self{src: src.into(), lua}
-    }
-    
-    pub fn from_file(path: PathBuf) -> Result<Self>{
-        let mut file = File::open(path)?;
-        let mut src = String::new();
-        file.read_to_string(&mut src)?;
-
-        Ok(Self{src, ..Default::default()})
-    }
-}
-
-impl BoardActor for LuaActor{
-    fn act_on(&self, b: &mut super::BoardBuilder) -> Result<()> {
-        let tables = self.lua.create_table()?;
-
-        for (i, table) in b.board_prototypes.iter().enumerate(){
-            let t = self.lua.create_table()?;
-            for i in 0..16{
-                use super::DataAction as DC;
-                match table.get(i).0{
-                    // lua starts the indices at 1
-                    DC::NotSpecial => t.set(i + 1, "NotSpecial")?,
-                    DC::CloneMark  => t.set(i + 1, "CloneMark")?,
-                    DC::Forced(v)  => t.set(i + 1, v)?,
-                }
-            }
-
-            // lua starts indices at 1
-            tables.set(i + 1, t)?;
-        }
-
-        self.lua.globals().set("board_prototypes", tables)?;
-
-        self.lua
-            .load(&self.src)
-            .exec()
-            .map_err(|lua_err| anyhow!("[LUA ERROR] : {lua_err}"))?;
-
-        let luatables : LuaTable = self.lua.globals().get("board_prototypes")
-            .map_err(|lua_err| anyhow!("[LUA ERROR] : PROTOTYPES NOT FOUND - {lua_err}"))?;
-        for (i, table) in b.board_prototypes.iter_mut().enumerate(){
-            let t : LuaTable = luatables.get(i + 1)?;
-            for i in 0..16{
-                // lua starts the indices at 1
-                let lua_card : LuaValue = t.get(i + 1)
-                    .map_err(|lua_err| anyhow!("[LUA ERROR] : CARD NOT FOUND - {lua_err}"))?;
-
-                use super::DataAction as DC;
-                table.get_mut(i).0 = match lua_card{
-                    LuaValue::Integer(v) => DC::Forced(v as u8),
-                    LuaValue::String(s) => {
-                        if s == "CloneMark" { DC::CloneMark }
-                        else { DC::NotSpecial }
-
-                    },
-                    _ => DC::NotSpecial ,
-                };
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl Display for LuaActor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "lua src:\n{}", self.src)
-    }
-}
-
-}
-
-pub use lua::LuaActor;
+pub use lua::*;
