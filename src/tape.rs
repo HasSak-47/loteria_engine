@@ -1,4 +1,4 @@
-use crate::engine::random::{rand_range, rand_range_pair};
+use crate::random::rand_range;
 
 pub fn generate_deck(card_count : usize, last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
     let mut v = Vec::new();
