@@ -1,7 +1,7 @@
 pub mod random;
 pub mod tape;
 pub mod board;
-mod lua;
+// mod lua;
 
 #[cfg(test)]
 pub mod test;
@@ -93,9 +93,12 @@ pub struct BoardBuilder{
     blacklist: Vec<u8>,
     forcelist: Vec<u8>,
 
-    count: usize,
-    board_size: usize,
     tapes: Vec<Tape>,
+    board_size: usize,
+
+    /** the amount of cards that are in the deck */
+    count: usize,
+    /** the total number of boards to generate */
     total: usize
 }
 
@@ -140,6 +143,7 @@ impl BoardBuilder{
     pub fn get_card(&mut self, data_card: DataCard, clone_val: &mut Option<Card>) -> Card{
         use DataAction as DC;
         match data_card.0{
+            DC::Forced(s) => Card::Value(s),
             DC::NotSpecial => Card::Value(self.tapes[0].0.remove(0)),
             DC::CloneMark => {
                 if clone_val.is_none(){
@@ -150,7 +154,6 @@ impl BoardBuilder{
                     clone_val.unwrap()
                 }
             },
-            DC::Forced(s) => Card::Value(s),
         }
     }
 
@@ -158,6 +161,7 @@ impl BoardBuilder{
         let mut b = Board::default();
 
         let board_proto = self.board_prototypes.pop().unwrap();
+        println!("creating board: {board_proto:?}");
         let mut clone_val = None;
         for ij in 0..16{
             let i = ij % 4;
@@ -174,9 +178,6 @@ impl BoardBuilder{
         let mut v = Vec::new();
         let total_cards = self.total;
 
-        if self.tapes[0].0.len() == 0{
-            return v;
-        }
         for _ in 0..total_cards{
             v.push(self.create_board());
         }
@@ -222,6 +223,7 @@ new_board_actor!(LowerCenterMarkPair, new_lower_center_mark_pair,);
 new_board_actor!(SetTotal, new_set_total, val: usize);
 new_board_actor!(SetCount, new_set_count, val: usize);
 new_board_actor!(SetPair, new_set_pair, pair: usize, card: usize);
+new_board_actor!(SetOn, new_set_on_pair, val: u8, card: usize, x: usize, y: usize);
 
 impl BoardActor for BlackList{
     fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
@@ -336,6 +338,18 @@ impl BoardActor for SetPair{
     }
 }
 
+impl BoardActor for SetOn{
+    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
+        if b.board_size != 0{
+            b.board_size -= 1;
+        }
+        b.blacklist.push(self.0);
+        b.board_prototypes[self.1].get_mut(self.2 + self.3 * 4).0 = DataAction::Forced(self.0);
+
+        return Ok(b);
+    }
+}
+
 impl Display for BoardBuilder{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for ij in 0..16 {
@@ -349,4 +363,4 @@ impl Display for BoardBuilder{
 
         Ok(()) } }
 
-pub use lua::*;
+// pub use lua::*;

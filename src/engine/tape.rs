@@ -53,6 +53,9 @@ impl TapeGenerator {
         let mut tape = Tape(Vec::new());
 
         tape.0.append(&mut generate_deck(self.count, &[], &self.blacklist));
+        if tape.0.len() < 16{
+            return tape;
+        }
         for _ in 1..self.total{
             tape.0.append(&mut generate_deck(self.count, &tape.0[(tape.0.len() - 16)..(tape.0.len())], &self.blacklist));
         }
