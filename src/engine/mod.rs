@@ -1,18 +1,10 @@
-pub mod random;
-pub mod tape;
-pub mod board;
-// mod lua;
-
-#[cfg(test)]
-pub mod test;
-
 use std::fmt::Display;
 
-use board::BasicBoard;
-use crate::engine::random::rand_range_pair;
+use crate::tape::*;
+use crate::board::BasicBoard;
+use crate::random::rand_range_pair;
 use anyhow::Result;
 
-use tape::*;
 
 /**
 the value in the produced board
@@ -129,10 +121,6 @@ impl BoardBuilder{
         self
     }
 
-    pub fn act_on<B: BoardActor>(self, actor: B) -> Self{
-        actor.act_on(self).unwrap()
-    }
-
     pub fn generate_tapes(mut self) -> Self{
         let tape = TapeGenerator::new(self.count, self.total, &self.blacklist);
         self.tapes.push(tape.generate());
@@ -184,183 +172,4 @@ impl BoardBuilder{
 
         v
     }
-
-    // ugly getters
-    pub fn get_count(&self) -> usize{ self.count }
 }
-
-pub trait BoardActor{
-    fn act_on(&self, b: BoardBuilder) -> Result<BoardBuilder>;
-}
-
-#[repr(transparent)]
-pub struct BoardActorC(
-    Box<dyn BoardActor>,
-);
-
-macro_rules! new_board_actor {
-    ($name:ident, $cname:ident, $($tname: ident: $type:ty), *) => {
-        #[repr(C)]
-        #[derive(Debug, PartialEq, Eq)]
-        pub struct $name(  $( pub $type, )* );
-
-        impl $name{
-            pub fn new($( $tname: $type, ) *) -> Self{
-                Self($( $tname, )*)
-            }
-        }
-    };
-}
-
-new_board_actor!(BlackList, new_blacklist, val: u8);
-new_board_actor!(Force, new_force, val: u8);
-new_board_actor!(Set, new_set, i: usize, j: usize, val: u8);
-new_board_actor!(MarkPair, new_mark_pair, i: usize, j: usize, k: usize, l: usize);
-new_board_actor!(RandomMarkPair, new_random_mark_pair,);
-new_board_actor!(RandomCenterMarkPair, new_random_center_mark_pair,);
-new_board_actor!(UpperCenterMarkPair, new_upper_center_mark_pair,);
-new_board_actor!(LowerCenterMarkPair, new_lower_center_mark_pair,);
-new_board_actor!(SetTotal, new_set_total, val: usize);
-new_board_actor!(SetCount, new_set_count, val: usize);
-new_board_actor!(SetPair, new_set_pair, pair: usize, card: usize);
-new_board_actor!(SetOn, new_set_on_pair, val: u8, card: usize, x: usize, y: usize);
-
-impl BoardActor for BlackList{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.blacklist.push(self.0);
-        Ok(b) 
-    }
-}
-
-impl BoardActor for Force{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.board_size -= 1;
-        b.forcelist.push(self.0);
-        Ok(b) 
-    }
-}
-
-impl BoardActor for Set{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.board_size -= 1;
-        for board in &mut b.board_prototypes{
-            board[self.0][self.1].0 = DataAction::Forced(self.2);
-        }
-        Ok(b) 
-    }
-}
-
-impl BoardActor for MarkPair{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.board_size -= 1;
-        for board in &mut b.board_prototypes{
-            board[self.0][self.1].0 = DataAction::CloneMark;
-            board[self.2][self.3].0 = DataAction::CloneMark;
-        }
-        Ok(b) 
-    }
-}
-
-impl BoardActor for RandomMarkPair{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.board_size -= 1;
-        for board in &mut b.board_prototypes{
-            let source = rand_range_pair(0, 4);
-            let mut target =  rand_range_pair(0, 4);
-            while target == source{ target = rand_range_pair(0, 4); }
-            board[source.0][source.1].0 = DataAction::CloneMark;
-            board[target.0][target.1].0 = DataAction::CloneMark;
-        }
-        Ok(b) 
-    }
-}
-
-impl BoardActor for RandomCenterMarkPair{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.board_size -= 1;
-        for board in &mut b.board_prototypes{
-            let source = rand_range_pair(0, 2);
-            let mut target =  rand_range_pair(0, 2);
-            while target == source{ target = rand_range_pair(0, 2); }
-            board[source.0 + 1][source.1 + 1].0 = DataAction::CloneMark;
-            board[target.0 + 1][target.1 + 1].0 = DataAction::CloneMark;
-        }
-        Ok(b) 
-    }
-}
-
-impl BoardActor for UpperCenterMarkPair{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        for board in &mut b.board_prototypes{
-            board[1][1].0 = DataAction::CloneMark;
-            board[2][1].0 = DataAction::CloneMark;
-        }
-        Ok(b) 
-    }
-}
-
-impl BoardActor for LowerCenterMarkPair{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        for board in &mut b.board_prototypes{
-            board[1][2].0 = DataAction::CloneMark;
-            board[2][2].0 = DataAction::CloneMark;
-        }
-        Ok(b) 
-    }
-}
-
-impl BoardActor for SetTotal{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.set_total_ref(self.0);
-        Ok(b) 
-    }
-}
-
-impl BoardActor for SetCount{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.count = self.0;
-        Ok(b) 
-    }
-}
-
-impl BoardActor for SetPair{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        b.board_size -= 1;
-        b.blacklist.push(self.0 as u8);
-        let board = &mut b.board_prototypes[self.1];
-        for i in 0..16{
-            let t = &mut board.get_mut(i).0;
-            if let DataAction::CloneMark = t{
-                *t = DataAction::Forced(self.0 as u8);
-            }
-        }
-        Ok(b) 
-    }
-}
-
-impl BoardActor for SetOn{
-    fn act_on(&self, mut b: BoardBuilder) -> Result<BoardBuilder> {
-        if b.board_size != 0{
-            b.board_size -= 1;
-        }
-        b.blacklist.push(self.0);
-        b.board_prototypes[self.1].get_mut(self.2 + self.3 * 4).0 = DataAction::Forced(self.0);
-
-        return Ok(b);
-    }
-}
-
-impl Display for BoardBuilder{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for ij in 0..16 {
-            let i = ij % 4; 
-            let j = ij / 4; 
-            write!(f, "{:?} ", self.board_prototypes[0][i][j])?;
-            if i == 3{
-                writeln!(f)?;
-            }
-        }
-
-        Ok(()) } }
-
-// pub use lua::*;
