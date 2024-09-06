@@ -82,6 +82,9 @@ pub type DataBoard = BasicBoard<DataCard>;
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct BoardBuilder{
     board_prototypes: Vec<DataBoard>,
+    width: usize,
+    height: usize, 
+
     blacklist: Vec<u8>,
     forcelist: Vec<u8>,
 
@@ -99,33 +102,26 @@ impl BoardBuilder{
         Self {board_size: 16, count: 54, ..Default::default()}
     }
 
-    pub fn set_count(mut self, count: usize) -> Self{
+    pub fn set_count(&mut self, count: usize) {
         self.count = count;
-        self
     }
 
-    pub fn set_count_ref(&mut self, count: usize) -> &mut Self{
-        self.count = count;
-        self
+    pub fn set_width(&mut self, width: usize) {
+        self.width = width;
     }
 
-    pub fn set_total(mut self, total: usize) -> Self{
+    pub fn set_height(&mut self, height: usize) {
+        self.height = height;
+    }
+
+    pub fn set_total(&mut self, total: usize) {
         self.total = total;
         self.board_prototypes.resize(total, DataBoard::default());
-        self
     }
 
-    pub fn set_total_ref(&mut self, total: usize) -> &mut Self{
-        self.total = total;
-        self.board_prototypes.resize(total, DataBoard::default());
-        self
-    }
-
-    pub fn generate_tapes(mut self) -> Self{
+    pub fn generate_tapes(&mut self) {
         let tape = TapeGenerator::new(self.count, self.total, &self.blacklist);
         self.tapes.push(tape.generate());
-        
-        self
     }
 
     pub fn get_card(&mut self, data_card: DataCard, clone_val: &mut Option<Card>) -> Card{
@@ -149,7 +145,6 @@ impl BoardBuilder{
         let mut b = Board::default();
 
         let board_proto = self.board_prototypes.pop().unwrap();
-        println!("creating board: {board_proto:?}");
         let mut clone_val = None;
         for ij in 0..16{
             let i = ij % 4;
@@ -162,7 +157,7 @@ impl BoardBuilder{
         b
     }
 
-    pub fn generate_boards(mut self) -> Vec<Board>{
+    pub fn generate_boards(&mut self) -> Vec<Board>{
         let mut v = Vec::new();
         let total_cards = self.total;
 
