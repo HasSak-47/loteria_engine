@@ -6,16 +6,11 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 thiserror = "1.0"
+rand = "0.8"
 
 [dependencies.mlua]
 version = "0.9"
 features = ["lua54", "vendored"]
-
-[target.'cfg(not(target_arch="wasm32"))'.dependencies]
-rand = "0.8"
-
-[target.'cfg(target_arch="wasm32")'.dependencies]
-wasm-bindgen = "0.2"
 
 [lib]
 name = "loteria_engine"

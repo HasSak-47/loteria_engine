@@ -1,8 +1,6 @@
 
-#[cfg(not(target_arch="wasm32"))]
 use rand::random as rand_random;
 
-#[cfg(not(target_arch="wasm32"))]
 pub fn random() -> usize {
     rand_random()
 }
