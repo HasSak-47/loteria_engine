@@ -1,10 +1,11 @@
 use std::fmt::{Display, Debug};
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[repr(C)]
 pub struct BasicBoard<T>{
+    width : usize, 
+    height: usize,
     data: Vec<T>, 
-    width: usize, 
-    height: usize
 }
 
 impl<T> BasicBoard<T>{
@@ -12,13 +13,25 @@ impl<T> BasicBoard<T>{
         Self{data: Vec::new(), width: 0, height: 0}
     }
 
-    pub const fn get(&self, x: usize, y: usize ) -> &T{
+    pub fn get(&self, x: usize, y: usize ) -> &T{
         &self.data[ x + y * self.width ]
     }
 
-    pub const fn get_mut(&mut self, x: usize, y: usize ) -> &T{
+    pub fn get_mut(&mut self, x: usize, y: usize ) -> &mut T{
         &mut self.data[ x + y * self.width ]
     }
+
+}
+
+impl<T> BasicBoard<T> where 
+    T : Default + Clone,
+{
+    pub fn init(width: usize, height: usize) -> Self{
+        let mut k = Self{data: Vec::new(), width, height};
+        k.data.resize(width * height, T::default());
+        k
+    }
+
 }
 
 impl<T> std::ops::Index<usize> for BasicBoard<T>{

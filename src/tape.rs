@@ -1,9 +1,9 @@
 use crate::random::rand_range;
 
-pub fn generate_deck(card_count : usize, last_16 : &[u8], blacklist : &[u8]) -> Vec<u8> {
+pub fn generate_deck(card_count : usize, last_16 : &[usize], blacklist : &[usize]) -> Vec<usize> {
     let mut v = Vec::new();
-    let mut cards  : Vec<u8> = (0u8..card_count as u8).collect();
-    let mut last_16: Vec<u8> = last_16.into();
+    let mut cards  : Vec<usize> = (0usize..card_count as usize).collect();
+    let mut last_16: Vec<usize> = last_16.into();
 // remove the blacklist from the cards
     for lastc in blacklist.iter(){
         let i = cards.iter().position(|x| x == lastc);
@@ -36,16 +36,16 @@ pub fn generate_deck(card_count : usize, last_16 : &[u8], blacklist : &[u8]) -> 
 pub struct TapeGenerator{
     count: usize, // number of cards in deck
     total: usize, // amount of cards to be generated 
-    blacklist: Vec<u8>,
+    blacklist: Vec<usize>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Tape(
-    pub Vec<u8>,
+    pub Vec<usize>,
 );
 
 impl TapeGenerator {
-    pub fn new(count: usize, total: usize, blacklist : &[u8]) -> Self{
+    pub fn new(count: usize, total: usize, blacklist : &[usize]) -> Self{
         Self{count, total, blacklist: blacklist.into()}
     }
 

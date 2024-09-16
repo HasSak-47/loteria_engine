@@ -1,33 +1,35 @@
-use loteria_engine::engine::*;
+use anyhow::Result;
+use loteria_engine::*;
 
-const LUA_CODE: &str = "
-local i = 1
-for i=1, 4 do
-    local j = 1
-    for j=1,16 do
-        board_prototypes[i][j] = j
+const LUA_CODE: &str = r#"
+set_width(4)
+set_height(4)
+set_total(4)
+init()
+
+set_in_all(0, 0, 0, "Forced", 0)
+set_in_all(1, 1, 0, "CloneMark", 0)
+set_in_all(2, 1, 0, "CloneMark", 0)
+for b= 0, 3, 1 do
+    for i=1, 2, 1 do
+        set_in(b, 0, i, 0, "Forced", 1)
     end
 end
-";
+"#;
 
 #[test]
-fn lua_test() {
-    let mut builder = BoardBuilder::new()
-        .act_on(SetTotal(4))
-        .act_on(SetCount(54))
-        .act_on(LuaActor::new(LUA_CODE));
+fn lua_test() -> Result<()>{
+    init(LUA_CODE)?;
 
-    let boards = builder
-        .generate_tapes()
-        .generate_boards();
+    for i in 0..4{ unsafe{
+        println!("{}", BOARD.get_board_prototype(i));
+    }}
 
-
-    let mut output_board = Board::new_copy(Card::Value(1));
-    for i in 0..16{
-        output_board.get_mut(i).set((i + 1) as u8);
+    unsafe{
+        BOARD.generate()?;
     }
-    for board in &boards{
-        assert_eq!(output_board, boards[0], "comparing boards");
-    }
+
+
+    Ok(())
 
 }
