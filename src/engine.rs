@@ -133,7 +133,7 @@ impl BoardBuilder{
             width : 4,
             count : 54,
             total : 4,
-            tapes : 0,
+            tapes : 1,
 
             blacklist: Vec::new(),
             forcelist: Vec::new(),
@@ -231,7 +231,6 @@ impl BoardBuilder{
                         .get_mut(tape_index)
                         .ok_or_else(|| GE::out_of_bounds(format!("clone_val[{tape_index}] is out of bounds [0, {})!", len)))?;
 
-                            
                     use DataAction as DA;
                     board[i][j] = Card::Value(match ( data_board[i][j].0, &clone_val) {
                         (DA::CloneMark, None) => {
